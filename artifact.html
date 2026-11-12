@@ -51,6 +51,24 @@ dialog{background:var(--card);color:var(--ink);border:1px solid var(--line);bord
 .cat{display:grid;grid-template-columns:1fr 70px 70px 70px;gap:6px;align-items:center;margin-bottom:6px;font-size:13px}
 .cat input{width:100%;padding:5px}
 @media(max-width:560px){main{padding-top:10px;padding-bottom:10px}header h1{font-size:16px}.big{font-size:20px}}
+
+#bar{display:none}
+@media(max-width:859px){
+#bar{display:flex;position:fixed;left:0;right:0;bottom:0;background:var(--card);color:var(--ink);border-top:1px solid var(--line);padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));justify-content:space-between;align-items:center;gap:12px;z-index:15;box-shadow:0 -4px 14px rgba(15,23,42,.12)}
+#bar.off{display:none}
+#bar span{display:block;font-size:12px;color:var(--mut)}
+#bar b{font-size:20px;color:var(--acc)}
+main{padding-bottom:96px}
+button,select,input{min-height:44px}
+.line .x,button.x{min-width:44px}
+header{position:sticky;top:0;z-index:12}
+}
+@media(max-width:560px){
+dialog{width:100%;max-width:100%;height:100%;max-height:100%;margin:0;border-radius:0;overflow:auto}
+.cat{grid-template-columns:1fr 1fr 1fr;margin-bottom:12px}
+.cat>span:first-child{grid-column:1/-1;font-weight:600}
+.cat.ch{display:none}
+}
 </style>
 <header>
   <h1>Presupuesto Rápido</h1>
@@ -82,7 +100,7 @@ dialog{background:var(--card);color:var(--ink);border:1px solid var(--line);bord
   </div>
 </section>
 
-<section class="card">
+<section class="card" id="resumen">
   <h2>Resumen</h2>
   <div id="alerts"></div>
   <div class="range">
@@ -108,10 +126,11 @@ dialog{background:var(--card);color:var(--ink);border:1px solid var(--line);bord
 </main>
 
 <div id="toast" hidden></div>
+<div id="bar"><div><span>Total con IVA</span><b id="btot">—</b></div><button onclick="document.getElementById('resumen').scrollIntoView({behavior:'smooth'})">Ver resumen</button></div>
 <dialog id="dlg">
   <h2 style="margin-top:0">Tarifas (€ por unidad)</h2>
   <p style="font-size:12px;color:var(--mut)">Deja vacío lo que no tengas confirmado: saldrá como pendiente, nunca como 0 €.</p>
-  <div class="cat" style="color:var(--mut);font-size:12px"><span>Servicio</span><span>Mín.</span><span>Rec.</span><span>Máx.</span></div>
+  <div class="cat ch" style="color:var(--mut);font-size:12px"><span>Servicio</span><span>Mín.</span><span>Rec.</span><span>Máx.</span></div>
   <div id="catlist"></div>
   <div class="row"><button onclick="saveCat()">Guardar</button><button class="sec" onclick="dlg.close()">Cerrar</button></div>
 </dialog>
@@ -169,17 +188,20 @@ function addFromSearch(){
   const v=$("q").value.trim().toLowerCase();if(!v)return;
   const c=S.cat.find(c=>c.n.toLowerCase()===v)||S.cat.find(c=>c.n.toLowerCase().includes(v));
   if(!c){toast("No encuentro ese servicio. Usa «+ Libre» o añádelo en Editar tarifas.");return}
-  S.lines.push({cid:c.id,q:1,p:null});$("q").value="";render();
+  S.lines.push({cid:c.id,q:1,p:null});$("q").value="";render();focusLast();
 }
+function focusLast(){const l=$("lines").lastElementChild;if(l&&l.classList.contains("line"))l.scrollIntoView({behavior:"smooth",block:"center"})}
+document.addEventListener("focusin",e=>{if(e.target.type==="number")try{e.target.select()}catch(x){}});
+try{new IntersectionObserver(en=>$("bar").classList.toggle("off",en[0].isIntersecting),{threshold:.15}).observe($("resumen"))}catch(e){}
 function addFromSelect(){
   const v=$("sel").value;if(v==="")return;
-  S.lines.push({cid:+v,q:1,p:null});$("sel").value="";render();
+  S.lines.push({cid:+v,q:1,p:null});$("sel").value="";render();focusLast();
 }
 function addCustom(){
   const p=parseFloat($("cp").value),q=parseFloat($("cq").value);
   if(isNaN(p)||p<0){toast("Escribe el precio del extra.");return}
   S.lines.push({name:$("cn").value.trim()||"Extra",u:"m²",q:isNaN(q)?1:q,p,custom:true});
-  $("cn").value="";$("cp").value="";$("cq").value=1;$("ct").value="";render();
+  $("cn").value="";$("cp").value="";$("cq").value=1;$("ct").value="";render();focusLast();
 }
 function prevEx(){const t=(parseFloat($("cp").value)||0)*(parseFloat($("cq").value)||0);$("ct").value=t?eur(t):""}
 function info(l){
@@ -205,7 +227,7 @@ function render(){
   const r=f(sRec);
   $("rmin").textContent=S.lines.length?eur(f(sMin).t):"—";$("rrec").textContent=S.lines.length?eur(r.t):"—";$("rmax").textContent=S.lines.length?eur(f(sMax).t):"—";
   $("sub").textContent=eur(sRec);$("dd").textContent="−"+eur(r.d);$("ii").textContent=eur(r.i);$("base").textContent=eur(r.b);
-  $("ivl").textContent="IVA "+(S.iva10?"10":"21")+" %";$("ivv").textContent=eur(r.iv);$("tot").textContent=eur(r.t);
+  $("ivl").textContent="IVA "+(S.iva10?"10":"21")+" %";$("ivv").textContent=eur(r.iv);$("tot").textContent=eur(r.t);$("btot").textContent=S.lines.length?eur(r.t):"—";
   window._calc={sRec,r,miss};
   save();
 }
@@ -230,7 +252,7 @@ function copyTxt(){
 }
 function openCat(){
   $("catlist").innerHTML=S.cat.map(c=>`<div class="cat"><span>${c.n} <small>(${c.u})</small></span>
-  ${["min","rec","max"].map(k=>`<input type="number" min="0" step="any" value="${c[k]??""}" data-i="${c.id}" data-k="${k}">`).join("")}</div>`).join("");
+  ${["min","rec","max"].map(k=>`<input type="number" min="0" step="any" value="${c[k]??""}" data-i="${c.id}" data-k="${k}" placeholder="${{min:"Mín",rec:"Rec",max:"Máx"}[k]}" aria-label="${c.n} ${k}">`).join("")}</div>`).join("");
   $("dlg").showModal();
 }
 function saveCat(){
