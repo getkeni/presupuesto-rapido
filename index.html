@@ -60,6 +60,9 @@ dialog{border:none;border-radius:12px;max-width:640px;width:92%;padding:16px}
 <section class="card">
   <h2>Trabajos</h2>
   <div class="row">
+    <select id="sel" onchange="addFromSelect()" aria-label="Elegir servicio de la lista"></select>
+  </div>
+  <div class="row">
     <input id="q" list="dl" placeholder="Buscar servicio… (ej. baño, pintura, suelo)">
     <datalist id="dl"></datalist>
     <button onclick="addFromSearch()">Añadir</button>
@@ -128,6 +131,8 @@ const find=id=>S.cat.find(c=>c.id===id);
 
 function init(){
   $("dl").innerHTML=S.cat.map(c=>`<option value="${c.n}">`).join("");
+  const opt=c=>`<option value="${c.id}">${c.n} (${c.u})${c.rec==null?" · sin tarifa":""}</option>`;
+  $("sel").innerHTML='<option value="">Elegir de la lista…</option><optgroup label="Con tarifa">'+S.cat.filter(c=>c.rec!=null).map(opt).join("")+'</optgroup><optgroup label="Pendientes de tarifa">'+S.cat.filter(c=>c.rec==null).map(opt).join("")+'</optgroup>';
   $("disc").value=S.disc;$("imp").value=S.imp;$("iva10").checked=S.iva10;render();
 }
 function addFromSearch(){
@@ -135,6 +140,10 @@ function addFromSearch(){
   const c=S.cat.find(c=>c.n.toLowerCase()===v)||S.cat.find(c=>c.n.toLowerCase().includes(v));
   if(!c){alert("No encuentro ese servicio. Usa «+ Libre» o añádelo en Editar tarifas.");return}
   S.lines.push({cid:c.id,q:1,p:null});$("q").value="";render();
+}
+function addFromSelect(){
+  const v=$("sel").value;if(v==="")return;
+  S.lines.push({cid:+v,q:1,p:null});$("sel").value="";render();
 }
 function addCustom(){
   const p=parseFloat($("cp").value),q=parseFloat($("cq").value);
@@ -195,7 +204,7 @@ function openCat(){
 }
 function saveCat(){
   document.querySelectorAll("#catlist input").forEach(e=>{const c=find(+e.dataset.i),v=parseFloat(e.value);c[e.dataset.k]=isNaN(v)?null:v});
-  $("dlg").close();render();
+  $("dlg").close();init();
 }
 function resetAll(){if(confirm("¿Empezar un presupuesto nuevo? (se mantienen tus tarifas)")){S.lines=[];S.disc=0;S.imp=0;S.iva10=false;init()}}
 ["disc","imp","iva10"].forEach(id=>$(id).addEventListener("input",render));
