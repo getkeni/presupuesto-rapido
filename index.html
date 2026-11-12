@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Presupuesto Rápido</title>
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--ink:#14213d;--mut:#6b7280;--acc:#1e3a8a;--line:#e5e7eb;--warn:#b45309;--warnbg:#fef3c7}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{background:var(--acc);color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+header h1{margin:0;font-size:18px}
+main{max-width:1000px;margin:0 auto;padding:16px;display:grid;gap:16px;grid-template-columns:1fr}
+@media(min-width:860px){main{grid-template-columns:1.5fr 1fr;align-items:start}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+.card h2{margin:0 0 12px;font-size:15px}
+input,select,button{font:inherit;font-size:16px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);min-width:0}
+button{cursor:pointer;background:var(--acc);color:#fff;border-color:var(--acc)}
+button.sec{background:#fff;color:var(--acc)}
+button.x{background:none;border:none;color:var(--mut);padding:4px 8px;font-size:18px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.row>*{flex:1}.row>button{flex:0 0 auto}
+.line{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;align-items:end;padding:12px 0;border-bottom:1px solid var(--line)}
+.line .nm{grid-column:1/-1;display:flex;justify-content:space-between;align-items:flex-start;gap:8px;font-weight:600}
+.line .nm small{color:var(--mut);display:block;font-weight:400}
+.line label{font-size:11px;color:var(--mut);display:block}
+.line input{width:100%;padding:8px;font-size:16px}
+.line .imp{text-align:right;font-weight:700;color:var(--acc);padding-bottom:8px}
+.ex{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.ex .nm2{grid-column:1/-1}
+.ex label{font-size:11px;color:var(--mut)}
+.ex input{width:100%;font-size:16px}
+.ex button{grid-column:1/-1}
+.tot{display:flex;justify-content:space-between;padding:4px 0}
+.big{font-size:22px;font-weight:700;color:var(--acc)}
+.range{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+.range div{background:var(--bg);border-radius:8px;padding:8px;text-align:center}
+.range span{display:block;font-size:11px;color:var(--mut)}
+.range b{font-size:15px}
+.rec{outline:2px solid var(--acc)}
+.warn{background:var(--warnbg);color:var(--warn);padding:8px 10px;border-radius:8px;margin-bottom:8px;font-size:13px}
+.empty{color:var(--mut);padding:12px 0}
+label.c{display:flex;gap:8px;align-items:center;font-size:13px;margin:6px 0}
+label.c input{width:auto}
+dialog{border:none;border-radius:12px;max-width:640px;width:92%;padding:16px}
+.cat{display:grid;grid-template-columns:1fr 70px 70px 70px;gap:6px;align-items:center;margin-bottom:6px;font-size:13px}
+.cat input{width:100%;padding:5px}
+@media(max-width:560px){main{padding:10px}header h1{font-size:16px}.big{font-size:20px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>🏠 Presupuesto Rápido</h1>
+  <div class="row" style="margin:0;flex:0">
+    <button class="sec" onclick="openCat()">Editar tarifas</button>
+    <button class="sec" onclick="resetAll()">Nuevo</button>
+  </div>
+</header>
+<main>
+<section class="card">
+  <h2>Trabajos</h2>
+  <div class="row">
+    <input id="q" list="dl" placeholder="Buscar servicio… (ej. baño, pintura, suelo)">
+    <datalist id="dl"></datalist>
+    <button onclick="addFromSearch()">Añadir</button>
+  </div>
+  <div id="lines"></div>
+  <h2 style="margin-top:16px">Extras manuales</h2>
+  <div class="ex">
+    <div class="nm2"><label>Nombre (opcional)</label><input id="cn" placeholder="Ej. Mampara, demolición…"></div>
+    <div><label>Precio €/ud</label><input id="cp" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0,00 €"></div>
+    <div><label>m² / cantidad</label><input id="cq" type="number" inputmode="decimal" min="0" step="any" value="1"></div>
+    <div><label>Total</label><input id="ct" disabled placeholder="0,00 €"></div>
+    <button onclick="addCustom()">+ Añadir extra</button>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Resumen</h2>
+  <div id="alerts"></div>
+  <div class="range">
+    <div><span>Mínimo</span><b id="rmin">—</b></div>
+    <div class="rec"><span>Recomendado</span><b id="rrec">—</b></div>
+    <div><span>Máximo</span><b id="rmax">—</b></div>
+  </div>
+  <div class="row">
+    <label style="flex:1;font-size:12px;color:var(--mut)">Descuento %<input id="disc" type="number" min="0" max="100" value="0" style="width:100%"></label>
+    <label style="flex:1;font-size:12px;color:var(--mut)">Imprevistos %<input id="imp" type="number" min="0" max="100" value="0" style="width:100%"></label>
+  </div>
+  <label class="c"><input type="checkbox" id="iva10" style="width:20px;height:20px"> IVA reducido 10 % (solo si has confirmado que aplica)</label>
+  <div class="tot"><span>Subtotal (rec.)</span><span id="sub"></span></div>
+  <div class="tot"><span>Descuento</span><span id="dd"></span></div>
+  <div class="tot"><span>Imprevistos</span><span id="ii"></span></div>
+  <div class="tot"><span>Base imponible</span><span id="base"></span></div>
+  <div class="tot"><span id="ivl">IVA 21 %</span><span id="ivv"></span></div>
+  <div class="tot big"><span>TOTAL</span><span id="tot"></span></div>
+  <div class="row" style="margin-top:12px"><button onclick="copyTxt()">Copiar resumen</button></div>
+  <p style="font-size:12px;color:var(--mut);margin:8px 0 0">Los rangos son referencias orientativas editables, no tarifas verificadas. Se guarda solo en este navegador.</p>
+</section>
+</main>
+
+<dialog id="dlg">
+  <h2 style="margin-top:0">Tarifas (€ por unidad)</h2>
+  <p style="font-size:12px;color:var(--mut)">Deja vacío lo que no tengas confirmado: saldrá como pendiente, nunca como 0 €.</p>
+  <div class="cat" style="color:var(--mut);font-size:12px"><span>Servicio</span><span>Mín.</span><span>Rec.</span><span>Máx.</span></div>
+  <div id="catlist"></div>
+  <div class="row"><button onclick="saveCat()">Guardar</button><button class="sec" onclick="dlg.close()">Cerrar</button></div>
+</dialog>
+
+<script>
+const DEF=[
+["Reforma completa de baño","baño",3500,9000],["Bañera por ducha","ud",900,2300],["Reforma de cocina","cocina",6000,12000],
+["Tabique de ladrillo","m²",32,48],["Tabique de cartón yeso","m²",28,42],["Falso techo","m²",26,50],["Rozas","ml",9,16],
+["Alicatado","m²",30,55],["Suelo laminado","m²",30,45],["Suelo vinílico","m²",25,45],["Suelo porcelánico","m²",30,60],
+["Microcemento","m²",50,110],["Pintura interior","m²",6,15],["Quitar gotelé","m²",9,20],["Alisar paredes","m²",8,20],["Papel pintado","m²",20,30],
+["Punto eléctrico","punto",null,null],["Cuadro eléctrico","ud",null,null],["Iluminación (punto de luz)","punto",null,null],
+["Fontanería (punto de agua)","punto",null,null],["Saneamiento / desagües","ud",null,null],["Reforma integral de interior","m²",null,null],
+["Reforma interior de local comercial","m²",null,null],["Retirada de escombros","ud",null,null]
+].map((r,i)=>({id:i,n:r[0],u:r[1],min:r[2],rec:r[3]==null?null:Math.round((r[2]+r[3])/2),max:r[3]}));
+const K="presu-rapido-v1";
+let S;
+try{S=JSON.parse(localStorage.getItem(K))}catch(e){}
+S=S||{cat:DEF,lines:[],disc:0,imp:0,iva10:false};
+const $=id=>document.getElementById(id);
+const eur=n=>n.toLocaleString("es-ES",{style:"currency",currency:"EUR"});
+const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
+const find=id=>S.cat.find(c=>c.id===id);
+
+function init(){
+  $("dl").innerHTML=S.cat.map(c=>`<option value="${c.n}">`).join("");
+  $("disc").value=S.disc;$("imp").value=S.imp;$("iva10").checked=S.iva10;render();
+}
+function addFromSearch(){
+  const v=$("q").value.trim().toLowerCase();if(!v)return;
+  const c=S.cat.find(c=>c.n.toLowerCase()===v)||S.cat.find(c=>c.n.toLowerCase().includes(v));
+  if(!c){alert("No encuentro ese servicio. Usa «+ Libre» o añádelo en Editar tarifas.");return}
+  S.lines.push({cid:c.id,q:1,p:null});$("q").value="";render();
+}
+function addCustom(){
+  const p=parseFloat($("cp").value),q=parseFloat($("cq").value);
+  if(isNaN(p)||p<0){alert("Escribe el precio del extra.");return}
+  S.lines.push({name:$("cn").value.trim()||"Extra",u:"m²",q:isNaN(q)?1:q,p,custom:true});
+  $("cn").value="";$("cp").value="";$("cq").value=1;$("ct").value="";render();
+}
+function prevEx(){const t=(parseFloat($("cp").value)||0)*(parseFloat($("cq").value)||0);$("ct").value=t?eur(t):""}
+function info(l){
+  if(l.custom)return{n:l.name,u:l.u,min:l.p,rec:l.p,max:l.p};
+  const c=find(l.cid);return{n:c.n,u:c.u,min:c.min,rec:c.rec,max:c.max};
+}
+function render(){
+  let sMin=0,sRec=0,sMax=0,miss=[];
+  $("lines").innerHTML=S.lines.length?S.lines.map((l,i)=>{
+    const c=info(l),pr=l.p!=null?l.p:c.rec,hasP=pr!=null;
+    if(!hasP)miss.push(c.n);
+    const qty=l.q||0;
+    const rec=hasP?qty*pr:0;
+    const mn=l.p!=null?qty*l.p:(c.min!=null?qty*c.min:0),mx=l.p!=null?qty*l.p:(c.max!=null?qty*c.max:0);
+    if(hasP){sRec+=rec;sMin+=mn;sMax+=mx}
+    return `<div class="line"><div class="nm"><div>${c.n}<small>${c.custom?"Extra manual":c.u+(c.min!=null?` · ref. ${c.min}–${c.max} €`:"")}${l.p!=null&&!l.custom?" · tarifa manual":""}</small></div><button class="x" onclick="S.lines.splice(${i},1);render()">×</button></div>
+    <div><label>Cantidad (${c.u})</label><input type="number" inputmode="decimal" min="0" step="any" value="${l.q}" onchange="S.lines[${i}].q=parseFloat(this.value)||0;render()"></div>
+    <div><label>€ por ${c.u}</label><input type="number" inputmode="decimal" min="0" step="0.01" placeholder="pendiente" value="${pr==null?"":pr}" onchange="setP(${i},this.value)"></div>
+    <div class="imp">${hasP?eur(rec):"Pendiente"}</div></div>`}).join(""):`<div class="empty">Busca un servicio y pulsa «Añadir», o añade un extra.</div>`;
+  $("alerts").innerHTML=(miss.length?`<div class="warn">⚠ Sin tarifa confirmada (no suman): ${[...new Set(miss)].join(", ")}. Ponla en la línea o en Editar tarifas.</div>`:"")+dupWarn();
+  S.disc=parseFloat($("disc").value)||0;S.imp=parseFloat($("imp").value)||0;S.iva10=$("iva10").checked;
+  const f=x=>{const d=x*S.disc/100,i=(x-d)*S.imp/100,b=x-d+i,iv=b*(S.iva10?.10:.21);return{d,i,b,iv,t:b+iv}};
+  const r=f(sRec);
+  $("rmin").textContent=S.lines.length?eur(f(sMin).t):"—";$("rrec").textContent=S.lines.length?eur(r.t):"—";$("rmax").textContent=S.lines.length?eur(f(sMax).t):"—";
+  $("sub").textContent=eur(sRec);$("dd").textContent="−"+eur(r.d);$("ii").textContent=eur(r.i);$("base").textContent=eur(r.b);
+  $("ivl").textContent="IVA "+(S.iva10?"10":"21")+" %";$("ivv").textContent=eur(r.iv);$("tot").textContent=eur(r.t);
+  window._calc={sRec,r,miss};
+  save();
+}
+function setP(i,v){const p=parseFloat(v);S.lines[i].p=isNaN(p)?null:p;render()}
+function dupWarn(){
+  const ids=S.lines.filter(l=>!l.custom).map(l=>l.cid),names=S.lines.map(l=>info(l).n);
+  let w=[];
+  const dup=names.filter((n,i)=>names.indexOf(n)!==i);
+  if(dup.length)w.push("Partida repetida: "+[...new Set(dup)].join(", ")+".");
+  const integral=S.cat.filter(c=>/integral|local comercial/i.test(c.n)).map(c=>c.id);
+  if(ids.some(i=>integral.includes(i))&&ids.some(i=>!integral.includes(i)))w.push("Hay una reforma integral junto a otras partidas: comprueba que no estén ya incluidas.");
+  return w.map(t=>`<div class="warn">⚠ ${t}</div>`).join("");
+}
+function copyTxt(){
+  if(!S.lines.length){alert("No hay partidas.");return}
+  const c=window._calc;
+  let t="PRESUPUESTO ESTIMADO\n\n"+S.lines.map(l=>{const i=info(l),p=l.p!=null?l.p:i.rec;return `- ${i.n}: ${l.q} ${i.u} × ${p==null?"Pendiente de confirmar":eur(p)} = ${p==null?"Pendiente de confirmar":eur(l.q*p)}`}).join("\n");
+  t+=`\n\nSubtotal: ${eur(c.sRec)}\nDescuento (${S.disc}%): −${eur(c.r.d)}\nImprevistos (${S.imp}%): ${eur(c.r.i)}\nBase imponible: ${eur(c.r.b)}\nIVA ${S.iva10?10:21}%: ${eur(c.r.iv)}\nTOTAL: ${eur(c.r.t)}\n\nRango: ${$("rmin").textContent} – ${$("rmax").textContent}\nEstimación orientativa, sujeta a medición y confirmación.`;
+  if(c.miss.length)t+=`\nPartidas pendientes de tarifa: ${[...new Set(c.miss)].join(", ")}`;
+  navigator.clipboard.writeText(t).then(()=>alert("Copiado"),()=>prompt("Copia el texto:",t));
+}
+function openCat(){
+  $("catlist").innerHTML=S.cat.map(c=>`<div class="cat"><span>${c.n} <small>(${c.u})</small></span>
+  ${["min","rec","max"].map(k=>`<input type="number" min="0" step="any" value="${c[k]??""}" data-i="${c.id}" data-k="${k}">`).join("")}</div>`).join("");
+  $("dlg").showModal();
+}
+function saveCat(){
+  document.querySelectorAll("#catlist input").forEach(e=>{const c=find(+e.dataset.i),v=parseFloat(e.value);c[e.dataset.k]=isNaN(v)?null:v});
+  $("dlg").close();render();
+}
+function resetAll(){if(confirm("¿Empezar un presupuesto nuevo? (se mantienen tus tarifas)")){S.lines=[];S.disc=0;S.imp=0;S.iva10=false;init()}}
+["disc","imp","iva10"].forEach(id=>$(id).addEventListener("input",render));
+["cp","cq"].forEach(id=>$(id).addEventListener("input",prevEx));
+init();
+</script>
+</body>
+</html>
