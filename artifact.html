@@ -171,13 +171,21 @@ const eur=n=>n.toLocaleString("es-ES",{style:"currency",currency:"EUR"});
 let ref=null,saveT=null,last="",tt=null;
 const toast=m=>{const t=$("toast");t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,2600)};
 const setSt=m=>{$("st").textContent=m};
+function writeNow(j){
+  clearTimeout(saveT);saveT=null;last=j;setSt("Guardando…");
+  ref.set(JSON.parse(j)).then(()=>{try{localStorage.removeItem(K+"-dirty")}catch(e){}if(JSON.stringify(S)===j)setSt("Guardado ✓")},()=>{last="";setSt("Sin guardar en la nube. Reintentando…");clearTimeout(rtry);rtry=setTimeout(save,8000)});
+}
+let rtry=null;
 function save(){
   const j=JSON.stringify(S);if(j===last)return;
-  try{localStorage.setItem(K,j)}catch(e){}
-  if(!ref){return}
+  try{localStorage.setItem(K,j);localStorage.setItem(K+"-dirty","1")}catch(e){}
+  if(!ref)return;
   setSt("Guardando…");clearTimeout(saveT);
-  saveT=setTimeout(()=>{saveT=null;last=j;ref.set(JSON.parse(j)).then(()=>setSt("Guardado ✓"),()=>setSt("Sin guardar en la nube"))},700);
+  saveT=setTimeout(()=>writeNow(JSON.stringify(S)),700);
 }
+function flushNow(){if(ref&&saveT)writeNow(JSON.stringify(S))}
+addEventListener("pagehide",flushNow);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")flushNow()});
 async function connect(){
   let db=null;try{db=await claude.use("db")}catch(e){}
   if(!db){setSt("Solo en este dispositivo");return}
@@ -188,6 +196,8 @@ async function connect(){
     clearTimeout(lim);
     if(snap.exists){
       const d=snap.data(),j=JSON.stringify(d);
+      let dirty=false;try{dirty=!!localStorage.getItem(K+"-dirty")}catch(e){}
+      if(dirty&&j!==JSON.stringify(S)){last="";save();return}
       if(saveT||j===JSON.stringify(S)){setSt("Guardado ✓");return}
       S=JSON.parse(j);last=j;init();setSt("Guardado ✓");
     }else{last="";save()}
@@ -274,7 +284,7 @@ function openCat(){
 }
 function saveCat(){
   document.querySelectorAll("#catlist input").forEach(e=>{const c=find(+e.dataset.i),v=parseFloat(e.value);c[e.dataset.k]=isNaN(v)?null:v});
-  $("dlg").close();init();
+  $("dlg").close();init();flushNow();toast("Tarifas guardadas");
 }
 let rt=null;
 function resetAll(){
